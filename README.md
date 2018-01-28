@@ -2,6 +2,7 @@
 Twitter streaming using tweepy
 
 # Run
+- Create your app on twitter and copy keys from twitter app into config.py
 - Create and activate virtual environment
 - Go to the project folder
 - Run `pip install -r requirements.txt`
