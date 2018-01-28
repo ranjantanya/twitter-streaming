@@ -26,7 +26,7 @@ DOMAIN_NAME_PATTERN = '\/\/([a-zA-Z0-9.-]*)[\/\?]?'
 start_time = None
 
 
-class TweetReporter(threading.Thread):
+class TweetProcessor(threading.Thread):
     """
     Handles heavy lifting task of processing tweets and generating reports.
     """
@@ -49,8 +49,8 @@ class TweetReporter(threading.Thread):
         if len(tweet_list) > 0:
             self.preprocess_tweets(current_millis)
             self.generate_user_report()
-            self.generate_content_report()
-            self.generate_links_report()
+            # self.generate_content_report()
+            # self.generate_links_report()
         else:
             if rate_limit_reached:
                 print('Rate limit has reached. Deferring report generation.')
@@ -66,7 +66,7 @@ class TweetReporter(threading.Thread):
         :return:
         """
         global tweet_list
-        print('\nTweet list length before deleting old tweets {}'.format(str(len(tweet_list))))
+        # print('\nTweet list length before deleting old tweets {}'.format(str(len(tweet_list))))
         first_min_end_ts = current_millis - FIVE_MINUTES_IN_MS  # current time - 5 mins
         # delete the 1st minute data
         index = 0
@@ -79,8 +79,8 @@ class TweetReporter(threading.Thread):
 
         # slice tweet list to remove older tweets
         tweet_list = tweet_list[index:]
-        print('Number of tweets deleted {}'.format(str(index + 1)))
-        print('Tweet list length after deleting old tweets {}'.format(str(len(tweet_list))))
+        # print('Number of tweets deleted {}'.format(index))
+        # print('Tweet list length after deleting old tweets {}'.format(len(tweet_list)))
 
     def preprocess_tweets(self, current_millis):
         """
@@ -106,12 +106,13 @@ class TweetReporter(threading.Thread):
                 # ignore older tweets (more than 5 mins old)
                 # ignore tweets which are newer than when the report generation started
                 # ignore retweets
-                if (current_millis - FIVE_MINUTES_IN_MS) <= tweet_timestamp <= current_millis \
-                        and 'retweeted_status' not in tweet.keys():
+                if (current_millis - FIVE_MINUTES_IN_MS) <= tweet_timestamp <= current_millis:
                     tweets_in_last_5_min_window.append(tweet)
             except Exception as e:
                 print('Error while processing tweet: {}'.format(str(tweet)))
                 print('Exception {}'.format(e))
+
+        print("Relevant tweet list size {}".format(len(tweets_in_last_5_min_window)))
 
         # process relevant tweets and fill up global dictionaries
         for tweet in tweets_in_last_5_min_window:
@@ -220,10 +221,9 @@ class TweetTimer(threading.Thread):
     def run(self):
         while True:
             # wait before generating the report
-            print("Sleeping for 1 minute")
             time.sleep(WAIT_TIME_BEFORE_NEXT_PROCESSING)
             # generate report in a new thread
-            TweetReporter(2, "Tweet Reporter").start()
+            TweetProcessor(2, "Tweet Reporter").start()
 
 
 class TwitterStreamListener(StreamListener):
@@ -240,8 +240,8 @@ class TwitterStreamListener(StreamListener):
         """
         global tweet_list
         tweet_json = json.loads(data)
-        # adding only valid tweets
-        if 'timestamp_ms' in tweet_json:
+        # adding only valid tweets and ignoring retweets
+        if 'timestamp_ms' in tweet_json and 'retweeted_status' not in tweet_json.keys():
             tweet_list.append(tweet_json)
         return True
 
@@ -268,7 +268,7 @@ class TwitterStreamListener(StreamListener):
         """
         global rate_limit_reached
         rate_limit_reached = False
-        print('Connection Established')
+        print('Starting report generation')
 
 
 if __name__ == "__main__":
