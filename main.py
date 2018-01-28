@@ -1,5 +1,7 @@
 import json
 import re
+import signal
+import sys
 import threading
 import time
 
@@ -9,7 +11,7 @@ from tweepy import OAuthHandler
 from tweepy import Stream
 from tweepy.streaming import StreamListener
 
-import local_config as config
+import config
 
 stop_words = get_stop_words('english')
 stop_words.append(get_stop_words('en'))
@@ -24,6 +26,20 @@ FIVE_MINUTES_IN_MS = 300000
 WAIT_TIME_BEFORE_NEXT_PROCESSING = 60
 DOMAIN_NAME_PATTERN = '\/\/([a-zA-Z0-9.-]*)[\/\?]?'
 start_time = None
+stream = None
+
+
+def signal_handler(signal, frame):
+    global stream
+    print('Keyboard Interrupt! Exiting...')
+    if stream is not None:
+        stream.disconnect()
+        print("Stream disconnected")
+        stream = None
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, signal_handler)
 
 
 class TweetProcessor(threading.Thread):
@@ -219,12 +235,14 @@ class TweetTimer(threading.Thread):
         self.name = name
 
     def run(self):
-        while True:
+        global stream
+        while stream is not None:
             # wait before generating the report
             time.sleep(WAIT_TIME_BEFORE_NEXT_PROCESSING)
             # generate report in a new thread
             TweetProcessor(2, "Tweet Reporter").start()
 
+        print("Exiting Timer")
 
 class TwitterStreamListener(StreamListener):
     """
@@ -292,13 +310,15 @@ if __name__ == "__main__":
             print('Please enter a valid keyword\n')
             keyword = None
 
-    # initialize stream listener and start accepting tweets via twitter streams API
-    stream_listener = TwitterStreamListener()
-    stream = Stream(auth, stream_listener)
-    stream.filter(track=[keyword], async=True)
-
     # track start time. Useful for processing the first 5 minutes of data
     start_time = int(round(time.time() * 1000))
 
+    # initialize stream listener and start accepting tweets via twitter streams API
+    stream_listener = TwitterStreamListener()
+    stream = Stream(auth, stream_listener)
+
     # start a new thread to generate reports periodically
     TweetTimer(1, 'Tweet Timer').start()
+
+    # start tracking the keyword
+    stream.filter(track=[keyword])
