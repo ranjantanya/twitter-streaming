@@ -30,6 +30,9 @@ stream = None
 
 
 def signal_handler(signal, frame):
+    """
+    Signal to handle keyboard interrupts
+    """
     global stream
     print('Keyboard Interrupt! Exiting...')
     if stream is not None:
@@ -38,7 +41,7 @@ def signal_handler(signal, frame):
         stream = None
     sys.exit(0)
 
-
+# register signal
 signal.signal(signal.SIGINT, signal_handler)
 
 
@@ -57,7 +60,7 @@ class TweetProcessor(threading.Thread):
         current_millis = int(round(time.time() * 1000))
 
         # if more than 5 mins have elapsed then start deleting tweets which are older
-        # than 5 mins. This way we will maintain a window of latest tweets only (last 5 mins only)
+        # than 5 mins. This way we will maintain a window of latest tweets(last 5 mins) only
         if current_millis - FIVE_MINUTES_IN_MS > start_time:
             self.delete_old_tweets(current_millis)
 
@@ -65,8 +68,8 @@ class TweetProcessor(threading.Thread):
         if len(tweet_list) > 0:
             self.preprocess_tweets(current_millis)
             self.generate_user_report()
-            # self.generate_content_report()
-            # self.generate_links_report()
+            self.generate_content_report()
+            self.generate_links_report()
         else:
             if rate_limit_reached:
                 print('Rate limit has reached. Deferring report generation.')
@@ -128,7 +131,7 @@ class TweetProcessor(threading.Thread):
                 print('Error while processing tweet: {}'.format(str(tweet)))
                 print('Exception {}'.format(e))
 
-        print("Relevant tweet list size {}".format(len(tweets_in_last_5_min_window)))
+        # print("Relevant tweet count: {}".format(len(tweets_in_last_5_min_window)))
 
         # process relevant tweets and fill up global dictionaries
         for tweet in tweets_in_last_5_min_window:
@@ -141,7 +144,7 @@ class TweetProcessor(threading.Thread):
 
                 # process urls
                 if 'extended_tweet' in tweet.keys():
-                    # text contains truncated tweet, so pick from extended_tweet
+                    # text contains truncated tweet, so pick full text from extended_tweet
                     list_of_urls = tweet['extended_tweet']['entities']['urls']
                     tweet_text = tweet['extended_tweet']['full_text']
                 else:

@@ -9,3 +9,4 @@ Twitter streaming using tweepy
 - Run `python -m textblob.download_corpora lite` (Used for cleaning up text in the tweets)
 - Run `python main.py` for console output or `python main.py > report.txt` for reports in a file
 
+g
