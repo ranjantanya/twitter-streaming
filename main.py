@@ -36,6 +36,7 @@ def signal_handler(signal, frame):
     global stream
     print('Keyboard Interrupt! Exiting...')
     if stream is not None:
+        stream.running=False
         stream.disconnect()
         print("Stream disconnected")
         stream = None
@@ -163,10 +164,11 @@ class TweetProcessor(threading.Thread):
 
                 # process words
                 tweet_text = re.sub(r'@\w+', '', tweet_text)  # remove @ mentions
+                tweet_text = re.sub(r'\'\w+','',tweet_text)   # remove words starting with apostrophe
                 tweet_blob = TextBlob(tweet_text.lower())  # tokenize the tweet into words without punctuations
 
                 for word in tweet_blob.words:
-                    if word not in stop_words and word != "'s" and len(word) > 1:
+                    if word not in stop_words and len(word) > 1:
                         count_of_word = word_to_count_map.get(word, 0) + 1
                         word_to_count_map[word] = count_of_word
 
@@ -243,9 +245,9 @@ class TweetTimer(threading.Thread):
             # wait before generating the report
             time.sleep(WAIT_TIME_BEFORE_NEXT_PROCESSING)
             # generate report in a new thread
-            TweetProcessor(2, "Tweet Reporter").start()
-
-        print("Exiting Timer")
+            tweet_processor = TweetProcessor(2, "Tweet Reporter")
+            tweet_processor.setDaemon(False)
+            tweet_processor.start()
 
 class TwitterStreamListener(StreamListener):
     """
@@ -321,7 +323,9 @@ if __name__ == "__main__":
     stream = Stream(auth, stream_listener)
 
     # start a new thread to generate reports periodically
-    TweetTimer(1, 'Tweet Timer').start()
+    reporting_thread = TweetTimer(1, 'Tweet Timer')
+    reporting_thread.setDaemon(True)
+    reporting_thread.start()
 
     # start tracking the keyword
     stream.filter(track=[keyword])
